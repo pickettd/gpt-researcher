@@ -2,13 +2,14 @@
 import os
 
 import openai
+#from langchain.chat_models import ChatOllama
+#from langchain.chat_models import ChatLiteLLM
 from colorama import Fore
 from dotenv import load_dotenv
 
 from config.singleton import Singleton
 
 load_dotenv(verbose=True)
-
 
 class Config(metaclass=Singleton):
     """
@@ -17,13 +18,25 @@ class Config(metaclass=Singleton):
 
     def __init__(self) -> None:
         """Initialize the Config class"""
-        self.debug_mode = False
+        self.debug_mode = True
         self.allow_downloads = False
 
         self.selenium_web_browser = os.getenv("USE_WEB_BROWSER", "chrome")
         self.llm_provider = os.getenv("LLM_PROVIDER", "ChatOpenAI")
+        #self.llm_provider = "ChatLiteLLM"
+        #self.llm_provider = "ChatOllama"
+        # self.llm_provider = "AzureChatOpenAI"
+
         self.fast_llm_model = os.getenv("FAST_LLM_MODEL", "gpt-3.5-turbo-16k")
         self.smart_llm_model = os.getenv("SMART_LLM_MODEL", "gpt-4")
+        self.fast_llm_deployment_id = os.getenv("FAST_LLM_DEPLOYMENT_ID")
+        self.smart_llm_deployment_id = os.getenv("SMART_LLM_DEPLOYMENT_ID")
+        # self.fast_llm_model = "wizard-vicuna:13b"
+        # self.smart_llm_model = "wizard-vicuna:13b"
+        #self.fast_llm_model = "vicuna:13b-v1.5-16k-q4_0"
+        #self.smart_llm_model = "vicuna:13b-v1.5-16k-q4_0"
+        self.use_deployment_id = True
+
         self.fast_token_limit = int(os.getenv("FAST_TOKEN_LIMIT", 4000))
         self.smart_token_limit = int(os.getenv("SMART_TOKEN_LIMIT", 8000))
         self.browse_chunk_max_length = int(os.getenv("BROWSE_CHUNK_MAX_LENGTH", 8192))
@@ -40,6 +53,9 @@ class Config(metaclass=Singleton):
         self.memory_backend = os.getenv("MEMORY_BACKEND", "local")
         # Initialize the OpenAI API client
         openai.api_key = self.openai_api_key
+        openai.api_type = "azure"
+        openai.api_version = "2023-05-15"
+        openai.api_base = os.getenv("OPENAI_API_BASE")
 
     def set_fast_llm_model(self, value: str) -> None:
         """Set the fast LLM model value."""

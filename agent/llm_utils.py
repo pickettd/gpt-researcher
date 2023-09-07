@@ -62,13 +62,32 @@ def send_chat_completion_request(
     messages, model, temperature, max_tokens, stream, websocket
 ):
     if not stream:
-        result = lc_openai.ChatCompletion.create(
-            model=model, # Change model here to use different models
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            provider=CFG.llm_provider, # Change provider here to use a different API
-        )
+        # todo: does this work in python if use_deployment_id is not set?
+        result = {}
+        if (hasattr(CFG,"use_deployment_id")):
+            use_deployment_id = ""
+            if (model == CFG.smart_llm_model):
+                use_deployment_id = CFG.smart_llm_deployment_id
+            if (model == CFG.fast_llm_model):
+                use_deployment_id = CFG.fast_llm_deployment_id
+            result = lc_openai.ChatCompletion.create(
+                model=model, # Change model here to use different models
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                provider=CFG.llm_provider, # Change provider here to use a different API
+                deployment_id=use_deployment_id,
+                openai_api_key=CFG.openai_api_key,
+            )
+        else:
+            result = lc_openai.ChatCompletion.create(
+                model=model, # Change model here to use different models
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                provider=CFG.llm_provider, # Change provider here to use a different API
+            )
+
         return result["choices"][0]["message"]["content"]
     else:
         return stream_response(model, messages, temperature, max_tokens, websocket)
@@ -79,21 +98,46 @@ async def stream_response(model, messages, temperature, max_tokens, websocket):
     response = ""
     print(f"streaming response...")
 
-    for chunk in lc_openai.ChatCompletion.create(
+    if (hasattr(CFG,"use_deployment_id")):
+        use_deployment_id = ""
+        if (model == CFG.smart_llm_model):
+            use_deployment_id = CFG.smart_llm_deployment_id
+        if (model == CFG.fast_llm_model):
+            use_deployment_id = CFG.fast_llm_deployment_id
+        for chunk in lc_openai.ChatCompletion.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                provider=CFG.llm_provider,
+                stream=True,
+                deployment_id=use_deployment_id,
+                openai_api_key=CFG.openai_api_key,
+        ):
+            content = chunk["choices"][0].get("delta", {}).get("content")
+            if content is not None:
+                response += content
+                paragraph += content
+                if "\n" in paragraph:
+                    await websocket.send_json({"type": "report", "output": paragraph})
+                    paragraph = ""
+    else:
+        for chunk in lc_openai.ChatCompletion.create(
             model=model,
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
             provider=CFG.llm_provider,
             stream=True,
-    ):
-        content = chunk["choices"][0].get("delta", {}).get("content")
-        if content is not None:
-            response += content
-            paragraph += content
-            if "\n" in paragraph:
-                await websocket.send_json({"type": "report", "output": paragraph})
-                paragraph = ""
+        ):
+            content = chunk["choices"][0].get("delta", {}).get("content")
+            if content is not None:
+                response += content
+                paragraph += content
+                if "\n" in paragraph:
+                    await websocket.send_json({"type": "report", "output": paragraph})
+                    paragraph = ""
+
     print(f"streaming response complete")
     return response
 
